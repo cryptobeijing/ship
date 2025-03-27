@@ -782,7 +782,11 @@ const Sammy = () => {
         <div className="flex flex-1 justify-center">
           <DPad
             onDirectionChange={(direction: number) => {
-              moveShip(ship.x + direction * SHIP_MOVE_SPEED);
+              if (direction === MoveState.LEFT) {
+                moveShip(ship.x - SHIP_MOVE_SPEED);
+              } else if (direction === MoveState.RIGHT) {
+                moveShip(ship.x + SHIP_MOVE_SPEED);
+              }
             }}
           />
         </div>

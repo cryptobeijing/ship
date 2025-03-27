@@ -20,7 +20,7 @@ export async function generateMetadata(): Promise<Metadata> {
         version: process.env.NEXT_PUBLIC_VERSION,
         imageUrl: process.env.NEXT_PUBLIC_IMAGE_URL,
         button: {
-          title: `Launch ${process.env.NEXT_PUBLIC_ONCHAINKIT_PROJECT_NAME}`,
+          title: `Launch SBASE SHIP`,
           action: {
             type: "launch_frame",
             name: process.env.NEXT_PUBLIC_ONCHAINKIT_PROJECT_NAME,

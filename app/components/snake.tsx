@@ -7,19 +7,8 @@ import React, {
   useState,
   DependencyList,
   useCallback,
-  createContext,
-  useContext,
 } from "react";
-import { useOpenUrl, useNotification } from "@coinbase/onchainkit/minikit";
-import {
-  Transaction,
-  TransactionButton,
-  TransactionToast,
-  TransactionToastAction,
-  TransactionToastIcon,
-  TransactionToastLabel,
-  TransactionError,
-} from "@coinbase/onchainkit/transaction";
+import { useOpenUrl } from "@coinbase/onchainkit/minikit";
 import {
   ConnectWallet,
   ConnectWalletText,
@@ -35,9 +24,8 @@ import {
   Avatar,
 } from "@coinbase/onchainkit/identity";
 import { useAccount } from "wagmi";
-import { encodeAbiParameters, type Address as AddressType } from "viem";
 import ArrowSvg from "../svg/ArrowSvg";
-import SnakeLogo from "../svg/SnakeLogo";
+import BaseLogoHorizontal from "../svg/BaseLogoHorizontal";
 
 const MAX_SCORES = 8;
 const FPS = 60;
@@ -51,8 +39,18 @@ const COLORS = {
       .toString(16)
       .padStart(6, "0")}`,
 };
-const NUM_TARGETS_PER_LEVEL = 10;
-const EAS_GRAPHQL_URL = "https://base.easscan.org/graphql";
+
+// New game constants
+const BULLET_SPEED = 5;
+const ENEMY_SPEED = 1;
+const BULLET_SIZE = 5;
+const ENEMY_SIZE = 50;
+const SHIP_WIDTH = 40;
+const SHIP_HEIGHT = 20;
+const SHIP_Y_POSITION = 450;
+
+// Update ship movement speed
+const SHIP_MOVE_SPEED = 20; // Increased from 10
 
 const GameState = {
   INTRO: 0,
@@ -76,58 +74,6 @@ export type Score = {
   transactionHash: string;
   address: AddressType;
   score: number;
-};
-
-const LevelMaps: {
-  [key: number]: { x1: number; y1: number; width: number; height: number }[];
-} = {
-  1: [
-    { x1: 0, y1: 0, width: 10, height: 500 },
-    { x1: 0, y1: 0, width: 500, height: 10 },
-    { x1: 490, y1: 0, width: 10, height: 500 },
-    { x1: 0, y1: 490, width: 500, height: 10 },
-  ],
-  2: [
-    { x1: 0, y1: 0, width: 10, height: 500 },
-    { x1: 0, y1: 0, width: 500, height: 10 },
-    { x1: 490, y1: 0, width: 10, height: 500 },
-    { x1: 0, y1: 490, width: 500, height: 10 },
-    { x1: 250, y1: 0, width: 10, height: 200 },
-    { x1: 250, y1: 300, width: 10, height: 200 },
-  ],
-  3: [
-    { x1: 0, y1: 0, width: 10, height: 500 },
-    { x1: 0, y1: 0, width: 500, height: 10 },
-    { x1: 490, y1: 0, width: 10, height: 500 },
-    { x1: 0, y1: 490, width: 500, height: 10 },
-    { x1: 250, y1: 0, width: 10, height: 200 },
-    { x1: 250, y1: 300, width: 10, height: 200 },
-    { x1: 0, y1: 250, width: 200, height: 10 },
-    { x1: 300, y1: 250, width: 200, height: 10 },
-  ],
-  4: [
-    { x1: 0, y1: 0, width: 10, height: 500 },
-    { x1: 0, y1: 0, width: 500, height: 10 },
-    { x1: 490, y1: 0, width: 10, height: 500 },
-    { x1: 0, y1: 490, width: 500, height: 10 },
-    { x1: 100, y1: 0, width: 10, height: 200 },
-    { x1: 200, y1: 0, width: 10, height: 200 },
-    { x1: 300, y1: 0, width: 10, height: 200 },
-    { x1: 400, y1: 0, width: 10, height: 200 },
-    { x1: 100, y1: 300, width: 10, height: 200 },
-    { x1: 200, y1: 300, width: 10, height: 200 },
-    { x1: 300, y1: 300, width: 10, height: 200 },
-    { x1: 400, y1: 300, width: 10, height: 200 },
-  ],
-};
-
-const NumberOfMaps = Object.keys(LevelMaps).length;
-
-const DIRECTION_MAP: Record<string, number> = {
-  ArrowUp: MoveState.UP,
-  ArrowRight: MoveState.RIGHT,
-  ArrowDown: MoveState.DOWN,
-  ArrowLeft: MoveState.LEFT,
 };
 
 type Attestation = {
@@ -182,6 +128,49 @@ async function fetchLastAttestations() {
     .sort((a: Score, b: Score) => b.score - a.score);
 }
 
+const LevelMaps: {
+  [key: number]: { x1: number; y1: number; width: number; height: number }[];
+} = {
+  1: [
+    { x1: 0, y1: 0, width: 10, height: 500 },
+    { x1: 0, y1: 0, width: 500, height: 10 },
+    { x1: 490, y1: 0, width: 10, height: 500 },
+    { x1: 0, y1: 490, width: 500, height: 10 },
+  ],
+  2: [
+    { x1: 0, y1: 0, width: 10, height: 500 },
+    { x1: 0, y1: 0, width: 500, height: 10 },
+    { x1: 490, y1: 0, width: 10, height: 500 },
+    { x1: 0, y1: 490, width: 500, height: 10 },
+    { x1: 250, y1: 0, width: 10, height: 200 },
+    { x1: 250, y1: 300, width: 10, height: 200 },
+  ],
+  3: [
+    { x1: 0, y1: 0, width: 10, height: 500 },
+    { x1: 0, y1: 0, width: 500, height: 10 },
+    { x1: 490, y1: 0, width: 10, height: 500 },
+    { x1: 0, y1: 490, width: 500, height: 10 },
+    { x1: 250, y1: 0, width: 10, height: 200 },
+    { x1: 250, y1: 300, width: 10, height: 200 },
+    { x1: 0, y1: 250, width: 200, height: 10 },
+    { x1: 300, y1: 250, width: 200, height: 10 },
+  ],
+  4: [
+    { x1: 0, y1: 0, width: 10, height: 500 },
+    { x1: 0, y1: 0, width: 500, height: 10 },
+    { x1: 490, y1: 0, width: 10, height: 500 },
+    { x1: 0, y1: 490, width: 500, height: 10 },
+    { x1: 100, y1: 0, width: 10, height: 200 },
+    { x1: 200, y1: 0, width: 10, height: 200 },
+    { x1: 300, y1: 0, width: 10, height: 200 },
+    { x1: 400, y1: 0, width: 10, height: 200 },
+    { x1: 100, y1: 300, width: 10, height: 200 },
+    { x1: 200, y1: 300, width: 10, height: 200 },
+    { x1: 300, y1: 300, width: 10, height: 200 },
+    { x1: 400, y1: 300, width: 10, height: 200 },
+  ],
+};
+
 function useKonami(gameState: number) {
   const CODE = [
     MoveState.UP,
@@ -212,78 +201,6 @@ function useKonami(gameState: number) {
   };
 
   return { konami, updateSequence };
-}
-
-type HighScoresContextType = {
-  highScores: Score[];
-  checkIsHighScore: (currentScore: number) => boolean;
-  invalidateHighScores: () => void;
-  loadHighScores: () => Promise<void>;
-};
-
-const emptyHighScoresContext = {} as HighScoresContextType;
-export const HighScoresContext = createContext<HighScoresContextType>(
-  emptyHighScoresContext,
-);
-export function useHighScores() {
-  const context = useContext(HighScoresContext);
-  if (context === emptyHighScoresContext) {
-    throw new Error(
-      "useHighScores must be used within an HighScoresProvider component",
-    );
-  }
-  return context;
-}
-
-function HighScoresProvider({ children }: { children: React.ReactNode }) {
-  const [highScores, setHighScores] = useState<Score[]>([]);
-  const [invalidate, setInvalidate] = useState(true);
-
-  const loadHighScores = useCallback(async () => {
-    if (invalidate) {
-      setInvalidate(false);
-      const scores = await fetchLastAttestations();
-      setHighScores(scores ?? []);
-    }
-  }, [invalidate]);
-
-  const invalidateHighScores = useCallback(() => {
-    setInvalidate(true);
-  }, []);
-
-  const checkIsHighScore = useCallback(
-    (currentScore: number) => {
-      if (currentScore === 0) {
-        return false;
-      }
-
-      // if less than MAX_SCORES scores or current score is higher than lowest score
-      if (
-        (highScores?.length ?? 0) < MAX_SCORES ||
-        currentScore > (highScores?.[highScores.length - 1]?.score ?? 0)
-      ) {
-        return true;
-      }
-      return false;
-    },
-    [highScores],
-  );
-
-  const value = useMemo(
-    () => ({
-      highScores,
-      invalidateHighScores,
-      checkIsHighScore,
-      loadHighScores,
-    }),
-    [highScores, invalidateHighScores, checkIsHighScore, loadHighScores],
-  );
-
-  return (
-    <HighScoresContext.Provider value={value}>
-      {children}
-    </HighScoresContext.Provider>
-  );
 }
 
 type ControlButtonProps = {
@@ -404,16 +321,8 @@ type StatsProps = {
 };
 
 function Stats({ score, level, width = 390 }: StatsProps) {
-  const { highScores } = useHighScores();
-  const record = highScores?.[0]?.score ?? 0;
   return (
     <div className="grid grid-cols-2" style={{ width }}>
-      {record > 0 && (
-        <>
-          <div className="text-lg mb-4 w-[200px]">RECORD</div>
-          <div className="text-lg mb-4 text-right">{record}</div>
-        </>
-      )}
       <div className="text-lg mb-4 w-[200px]">LEVEL</div>
       <div className="text-lg mb-4 text-right">{level}</div>
       <div className="text-lg mb-4 w-[200px]">SCORE</div>
@@ -439,140 +348,17 @@ function AwaitingNextLevel({ score, level }: AwaitingNextLevelProps) {
   );
 }
 
-const SCHEMA_UID =
-  "0xdc3cf7f28b4b5255ce732cbf99fe906a5bc13fbd764e2463ba6034b4e1881835";
-const EAS_CONTRACT = "0x4200000000000000000000000000000000000021";
-const easABI = [
-  {
-    name: "attest",
-    type: "function" as const,
-    stateMutability: "payable" as const,
-    inputs: [
-      {
-        name: "request",
-        type: "tuple",
-        components: [
-          { name: "schema", type: "bytes32" },
-          {
-            name: "data",
-            type: "tuple",
-            components: [
-              { name: "recipient", type: "address" },
-              { name: "expirationTime", type: "uint64" },
-              { name: "revocable", type: "bool" },
-              { name: "refUID", type: "bytes32" },
-              { name: "data", type: "bytes" },
-              { name: "value", type: "uint256" },
-            ],
-          },
-        ],
-      },
-    ],
-    outputs: [{ name: "", type: "bytes32" }],
-  },
-];
-
 type DeadProps = {
   score: number;
   level: number;
-  onGoToIntro: () => void;
   isWin: boolean;
 };
 
-export function Dead({ score, level, onGoToIntro, isWin }: DeadProps) {
-  const { invalidateHighScores, checkIsHighScore } = useHighScores();
-  const sendNotification = useNotification();
-  const { address } = useAccount();
-  const isHighScore = checkIsHighScore(score);
-
-  const handleAttestationSuccess = useCallback(async () => {
-    if (!address) {
-      return null;
-    }
-
-    await sendNotification({
-      title: "Congratulations!",
-      body: `You scored a new high score of ${score} on minikit!`,
-    });
-
-    invalidateHighScores();
-  }, [address, invalidateHighScores, score, sendNotification]);
-
-  const transactionButton = useMemo(() => {
-    if (!address) {
-      return (
-        <Wallet>
-          <ConnectWallet>
-            <ConnectWalletText>Login to save your high score</ConnectWalletText>
-          </ConnectWallet>
-        </Wallet>
-      );
-    }
-
-    return (
-      <Transaction
-        calls={[
-          {
-            address: EAS_CONTRACT,
-            abi: easABI,
-            functionName: "attest",
-            args: [
-              {
-                schema: SCHEMA_UID,
-                data: {
-                  recipient: address,
-                  expirationTime: BigInt(0),
-                  revocable: false,
-                  refUID:
-                    "0x0000000000000000000000000000000000000000000000000000000000000000",
-                  data: encodeAbiParameters(
-                    [{ type: "string" }],
-                    [`${address} scored ${score} on minikit`],
-                  ),
-                  value: BigInt(0),
-                },
-              },
-            ],
-          },
-        ]}
-        onSuccess={handleAttestationSuccess}
-        onError={(error: TransactionError) =>
-          console.error("Attestation failed:", error)
-        }
-      >
-        <TransactionButton
-          text="Submit to save high score"
-          className="mx-auto w-[60%]"
-          successOverride={{
-            text: "View High Scores",
-            onClick: onGoToIntro,
-          }}
-        />
-        <TransactionToast className="mb-4">
-          <TransactionToastIcon />
-          <TransactionToastLabel />
-          <TransactionToastAction />
-        </TransactionToast>
-      </Transaction>
-    );
-  }, [address, handleAttestationSuccess, onGoToIntro, score]);
-
+export function Dead({ score, level, isWin }: DeadProps) {
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/70 z-20 m-[10px] mb-[30px]">
       <h1 className="text-6xl mb-4">{isWin ? "YOU WON!" : "GAME OVER"}</h1>
-      {isHighScore && <p className="text-2xl mb-4">You got a high score!</p>}
       <Stats score={score} level={level} width={250} />
-      {isHighScore && address && (
-        <fieldset className="border-2 border-gray-300 rounded-md mb-4">
-          <legend className="text-sm">Attestation</legend>
-          <div className="text-gray-800 px-2 py-1 italic">
-            <Address className="text-inherit" address={address} /> scored{" "}
-            {score} on minikit
-          </div>
-        </fieldset>
-      )}
-
-      {isHighScore && transactionButton}
       <p className="text-lg mb-4 absolute bottom-0">
         Press play or space to play again
       </p>
@@ -581,12 +367,7 @@ export function Dead({ score, level, onGoToIntro, isWin }: DeadProps) {
 }
 
 function HighScores() {
-  const { highScores, loadHighScores } = useHighScores();
   const openUrl = useOpenUrl();
-
-  useEffect(() => {
-    loadHighScores();
-  }, [loadHighScores]);
 
   const handleHighScoreClick = (score: Score) => {
     openUrl(`https://basescan.org/tx/${score.transactionHash}`);
@@ -595,30 +376,30 @@ function HighScores() {
   return (
     <div className="flex flex-col items-center justify-center absolute top-32 w-[80%]">
       <h1 className="text-2xl mb-4">RECENT HIGH SCORES</h1>
-      {highScores
-        .sort((a, b) => b.score - a.score)
-        .map((score, index) => (
-          <button
-            type="button"
-            key={score.attestationUid}
-            className="flex items-center w-full"
-            onClick={() => handleHighScoreClick(score)}
-          >
-            <span className="text-black w-8">{index + 1}.</span>
-            <div className="flex items-center flex-grow">
-              <Identity
-                className="!bg-inherit space-x-1 px-0 [&>div]:space-x-2"
-                address={score.address}
-              >
-                <Name className="text-black" />
-              </Identity>
-              <div className="px-2">
-                <ArrowSvg />
+      {fetchLastAttestations()
+        .then(scores => scores?.sort((a: Score, b: Score) => b.score - a.score)
+          .map((score: Score, index: number) => (
+            <button
+              type="button"
+              key={score.attestationUid}
+              className="flex items-center w-full"
+              onClick={() => handleHighScoreClick(score)}
+            >
+              <span className="text-black w-8">{index + 1}.</span>
+              <div className="flex items-center flex-grow">
+                <Identity
+                  className="!bg-inherit space-x-1 px-0 [&>div]:space-x-2"
+                  address={score.address}
+                >
+                  <Name className="text-black" />
+                </Identity>
+                <div className="px-2">
+                  <ArrowSvg />
+                </div>
               </div>
-            </div>
-            <div className="text-black text-right flex-grow">{score.score}</div>
-          </button>
-        ))}
+              <div className="text-black text-right flex-grow">{score.score}</div>
+            </button>
+          )))}
     </div>
   );
 }
@@ -631,9 +412,8 @@ function Intro({ konami }: IntroProps) {
   return (
     <div className="absolute inset-0 flex flex-col items-center bg-white/70 z-20 m-[10px] mb-[30px] pb-6">
       <div className="absolute top-12">
-        <SnakeLogo width={300} height={60} animate={konami} />
+        <BaseLogoHorizontal className="w-[300px] h-[60px]" animate={konami} />
       </div>
-      <HighScores />
       <div className="absolute bottom-4">Press play or space to start</div>
     </div>
   );
@@ -658,7 +438,15 @@ const useGameLoop = (callback: () => void, dependencies: DependencyList) => {
   }, [...dependencies, callback]);
 };
 
-type Segment = { x: number; y: number };
+type Bullet = {
+  x: number;
+  y: number;
+};
+
+type Enemy = {
+  x: number;
+  y: number;
+};
 
 const Sammy = () => {
   const gameCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -666,35 +454,26 @@ const Sammy = () => {
   const sammyCanvasRef = useRef<HTMLCanvasElement>(null);
   const scoreCanvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const levelRef = useRef(1); // track level with a ref to ensure it is updated correctly in dev mode
+  const levelRef = useRef(1);
 
   const [gameState, setGameState] = useState(GameState.INTRO);
   const [level, setLevel] = useState(1);
   const [score, setScore] = useState({ points: 2000, total: 0 });
-  const [sammy, setSammy] = useState<{
-    x: number;
-    y: number;
-    length: number;
-    direction: number;
-    newDirection: number;
-    segments: Segment[];
-  }>({
-    x: 50,
-    y: 100,
-    length: 10,
-    direction: MoveState.DOWN,
-    newDirection: MoveState.NONE,
-    segments: [],
+  const [ship, setShip] = useState({
+    x: 250,
+    y: SHIP_Y_POSITION,
   });
-  const [target, setTarget] = useState({
-    exists: false,
-    num: 0,
-    x: 0,
-    y: 0,
-    color: COLORS.black,
-  });
+  const [enemies, setEnemies] = useState<Enemy[]>([]);
+  const [bullets, setBullets] = useState<Bullet[]>([]);
   const [scale, setScale] = useState<number | null>(null);
-  const { konami, updateSequence } = useKonami(gameState);
+  const { konami } = useKonami(gameState);
+
+  const moveShip = useCallback((newX: number) => {
+    setShip(prev => ({
+      ...prev,
+      x: Math.max(0, Math.min(500 - SHIP_WIDTH, newX))
+    }));
+  }, []);
 
   const getStartingScore = useCallback(
     (level: number, adjust = false) => {
@@ -717,32 +496,26 @@ const Sammy = () => {
           return GameState.RUNNING;
         case GameState.WON:
         case GameState.DEAD:
-          setSammy({
-            x: 50,
-            y: 100,
-            length: 10,
-            direction: MoveState.DOWN,
-            newDirection: MoveState.NONE,
-            segments: [],
+          setShip({
+            x: 250,
+            y: SHIP_Y_POSITION,
           });
           setScore({ points: getStartingScore(1), total: 0 });
-          setTarget({ exists: false, num: 0, x: 0, y: 0, color: "" });
+          setEnemies([]);
+          setBullets([]);
           setLevel(1);
           return GameState.RUNNING;
         case GameState.AWAITINGNEXTLEVEL:
-          setSammy({
-            x: 50,
-            y: 100,
-            length: 10,
-            direction: MoveState.DOWN,
-            newDirection: MoveState.NONE,
-            segments: [],
+          setShip({
+            x: 250,
+            y: SHIP_Y_POSITION,
           });
           setScore((prevScore) => ({
             ...prevScore,
             points: getStartingScore(levelRef.current + 1),
           }));
-          setTarget({ exists: false, num: 0, x: 0, y: 0, color: "" });
+          setEnemies([]);
+          setBullets([]);
           setLevel(levelRef.current + 1);
           return GameState.RUNNING;
         default:
@@ -772,24 +545,18 @@ const Sammy = () => {
 
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
-      const newDirection = DIRECTION_MAP[e.code];
-      if (newDirection || e.code === "Space") {
-        e.preventDefault();
-        if (e.code === "Space") {
-          updateGameState();
-        } else {
-          setSammy((prev) => ({
-            ...prev,
-            newDirection: newDirection || prev.newDirection,
-          }));
-          updateSequence(newDirection);
-        }
+      if (e.code === "Space") {
+        updateGameState();
+      } else if (e.code === "ArrowLeft") {
+        moveShip(ship.x - SHIP_MOVE_SPEED);
+      } else if (e.code === "ArrowRight") {
+        moveShip(ship.x + SHIP_MOVE_SPEED);
       }
     };
 
     window.addEventListener("keydown", handleKeyPress);
     return () => window.removeEventListener("keydown", handleKeyPress);
-  }, [konami, updateGameState, updateSequence]);
+  }, [updateGameState, moveShip, ship.x]);
 
   const drawMap = useCallback(() => {
     const ctx = mapCanvasRef.current?.getContext("2d");
@@ -810,163 +577,75 @@ const Sammy = () => {
     }
   }, [drawMap, level, scale]);
 
-  const createTarget = useCallback(() => {
-    if (!target.exists) {
-      let isValidPosition = false;
-      const newTarget = {
-        x: 0,
-        y: 0,
-        exists: true,
-        num: target.num + 1,
-        color: COLORS.black,
-      };
+  const updateGame = useCallback(() => {
+    // Move bullets
+    setBullets(prev => 
+      prev.map(bullet => ({
+        ...bullet,
+        y: bullet.y - BULLET_SPEED
+      })).filter(bullet => bullet.y > 0)
+    );
 
-      while (!isValidPosition) {
-        newTarget.x = Math.floor(Math.random() * 48) * 10 + 10;
-        newTarget.y = Math.floor(Math.random() * 48) * 10 + 10;
-        newTarget.color = COLORS.random();
+    // Move enemies
+    setEnemies(prev =>
+      prev.map(enemy => ({
+        ...enemy,
+        y: enemy.y + ENEMY_SPEED
+      })).filter(enemy => enemy.y < 500)
+    );
 
-        // check if target overlaps with any wall
-        isValidPosition = !LevelMaps[level].some((wall) => {
-          const targetLeft = newTarget.x;
-          const targetRight = newTarget.x + 10;
-          const targetTop = newTarget.y;
-          const targetBottom = newTarget.y + 10;
-
-          const wallLeft = wall.x1;
-          const wallRight = wall.x1 + wall.width;
-          const wallTop = wall.y1;
-          const wallBottom = wall.y1 + wall.height;
-
-          return !(
-            targetLeft > wallRight ||
-            targetRight < wallLeft ||
-            targetTop > wallBottom ||
-            targetBottom < wallTop
-          );
-        });
-      }
-
-      const ctx = sammyCanvasRef.current?.getContext("2d");
-      if (ctx) {
-        ctx.fillStyle = newTarget.color;
-        ctx.fillRect(newTarget.x, newTarget.y, 10, 10);
-      }
-
-      setTarget(newTarget);
-    }
-  }, [level, setTarget, target]);
-
-  const moveSammy = useCallback(() => {
-    const newSammy = { ...sammy };
-
-    if (newSammy.newDirection !== MoveState.NONE) {
-      const isHorizontal =
-        newSammy.newDirection === MoveState.LEFT ||
-        newSammy.newDirection === MoveState.RIGHT;
-      const isVertical =
-        newSammy.newDirection === MoveState.UP ||
-        newSammy.newDirection === MoveState.DOWN;
-
-      // only change direction on a grid
-      if (
-        (isHorizontal && newSammy.y % 10 === 0) ||
-        (isVertical && newSammy.x % 10 === 0)
-      ) {
-        newSammy.direction = newSammy.newDirection;
-        newSammy.newDirection = MoveState.NONE;
-      }
+    // Create new bullets
+    if (Math.random() < 0.1) {
+      setBullets(prev => [...prev, {
+        x: ship.x + SHIP_WIDTH / 2,
+        y: ship.y
+      }]);
     }
 
-    switch (newSammy.direction) {
-      case MoveState.UP:
-        newSammy.y--;
-        break;
-      case MoveState.RIGHT:
-        newSammy.x++;
-        break;
-      case MoveState.DOWN:
-        newSammy.y++;
-        break;
-      case MoveState.LEFT:
-        newSammy.x--;
-        break;
+    // Create new enemies
+    if (Math.random() < 0.02) {
+      setEnemies(prev => [...prev, {
+        x: Math.random() * (500 - ENEMY_SIZE),
+        y: -ENEMY_SIZE
+      }]);
     }
-
-    const newSegment = { x: newSammy.x, y: newSammy.y };
-    newSammy.segments = [newSegment].concat(newSammy.segments);
-
-    if (newSammy.segments.length > newSammy.length) {
-      newSammy.segments.pop();
-    }
-
-    setSammy(newSammy);
-  }, [sammy, setSammy]);
+  }, [ship.x]);
 
   const checkCollisions = useCallback(() => {
-    // wall collisions
-    const hitWall = LevelMaps[level].some((wall) => {
-      const sammyLeft = sammy.x;
-      const sammyRight = sammy.x + 10;
-      const sammyTop = sammy.y;
-      const sammyBottom = sammy.y + 10;
-
-      // adjust padding to allow wall sliding
-      const wallLeft = wall.x1 + 1;
-      const wallRight = wall.x1 + wall.width - 2;
-      const wallTop = wall.y1 + 1;
-      const wallBottom = wall.y1 + wall.height - 2;
-
-      return !(
-        sammyLeft > wallRight ||
-        sammyRight < wallLeft ||
-        sammyTop > wallBottom ||
-        sammyBottom < wallTop
-      );
+    // Check bullet-enemy collisions
+    bullets.forEach(bullet => {
+      enemies.forEach((enemy, enemyIndex) => {
+        if (
+          bullet.x < enemy.x + ENEMY_SIZE &&
+          bullet.x + BULLET_SIZE > enemy.x &&
+          bullet.y < enemy.y + ENEMY_SIZE &&
+          bullet.y + BULLET_SIZE > enemy.y
+        ) {
+          // Remove bullet and enemy
+          setBullets(prev => prev.filter(b => b !== bullet));
+          setEnemies(prev => prev.filter((_, i) => i !== enemyIndex));
+          
+          // Update score
+          setScore(prev => ({
+            points: getStartingScore(levelRef.current),
+            total: prev.total + prev.points
+          }));
+        }
+      });
     });
 
-    // self collision
-    const hitSelf = sammy.segments
-      .slice(1)
-      .some((segment) => segment.x === sammy.x && segment.y === sammy.y);
-
-    if (hitWall || hitSelf) {
-      setGameState(GameState.DEAD);
-    }
-
-    // target collision
-    if (target.exists && sammy.x === target.x && sammy.y === target.y) {
-      if (target.num < NUM_TARGETS_PER_LEVEL) {
-        setSammy((prev) => ({
-          ...prev,
-          length: prev.length + (10 * target.num * target.num) / 2,
-        }));
-        setScore((prev) => ({
-          points: getStartingScore(levelRef.current),
-          total: prev.total + prev.points,
-        }));
-        setTarget((prev) => ({ ...prev, exists: false }));
-      } else {
-        if (level === NumberOfMaps) {
-          setGameState(GameState.WON);
-        } else {
-          setScore((prev) => ({
-            points: getStartingScore(levelRef.current + 1, true),
-            total: prev.total + prev.points,
-          }));
-          setGameState(GameState.AWAITINGNEXTLEVEL);
-        }
+    // Check enemy-ship collision
+    enemies.forEach(enemy => {
+      if (
+        ship.x < enemy.x + ENEMY_SIZE &&
+        ship.x + SHIP_WIDTH > enemy.x &&
+        ship.y < enemy.y + ENEMY_SIZE &&
+        ship.y + SHIP_HEIGHT > enemy.y
+      ) {
+        setGameState(GameState.DEAD);
       }
-    }
-  }, [
-    level,
-    sammy,
-    setSammy,
-    setGameState,
-    setScore,
-    getStartingScore,
-    target,
-  ]);
+    });
+  }, [bullets, enemies, ship, setGameState, setScore, getStartingScore]);
 
   const updateScore = useCallback(() => {
     const scoreCtx = scoreCanvasRef.current?.getContext("2d");
@@ -989,28 +668,35 @@ const Sammy = () => {
     if (ctx) {
       ctx.clearRect(0, 0, 500, 520);
 
-      // draw sammy
+      // Draw ship
       ctx.fillStyle = COLORS.blue;
-      sammy.segments.forEach((segment) => {
-        ctx.fillRect(segment.x, segment.y, 10, 10);
+      ctx.fillRect(ship.x, ship.y, SHIP_WIDTH, SHIP_HEIGHT);
+
+      // Draw bullets
+      ctx.fillStyle = COLORS.black;
+      bullets.forEach(bullet => {
+        ctx.fillRect(bullet.x, bullet.y, BULLET_SIZE, BULLET_SIZE);
       });
 
-      // draw target if exists
-      if (target.exists) {
-        ctx.fillStyle = target.color;
-        ctx.fillRect(target.x, target.y, 10, 10);
-      }
+      // Draw enemies as BaseLogo
+      enemies.forEach(enemy => {
+        const img = new Image();
+        img.src = "data:image/svg+xml;base64," + btoa(`
+          <svg width="111" height="111" viewBox="0 0 111 111" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M54.921 110.034C85.359 110.034 110.034 85.402 110.034 55.017C110.034 24.6319 85.359 0 54.921 0C26.0432 0 2.35281 22.1714 0 50.3923H72.8467V59.6416H3.9565e-07C2.35281 87.8625 26.0432 110.034 54.921 110.034Z" fill="#0052FF"/>
+          </svg>
+        `);
+        ctx.drawImage(img, enemy.x, enemy.y, ENEMY_SIZE, ENEMY_SIZE);
+      });
     }
 
-    // update score
     updateScore();
-  }, [gameState, sammy, target, updateScore]);
+  }, [gameState, ship, bullets, enemies, updateScore]);
 
   useGameLoop(() => {
     if (gameState === GameState.RUNNING) {
-      moveSammy();
+      updateGame();
       checkCollisions();
-      createTarget();
       drawGame();
       setScore((prev) => ({
         ...prev,
@@ -1019,7 +705,7 @@ const Sammy = () => {
     } else if (gameState === GameState.AWAITINGNEXTLEVEL) {
       updateScore();
     }
-  }, [gameState, sammy, target, score]);
+  }, [gameState, ship, bullets, enemies, score]);
 
   const overlays = useMemo(() => {
     switch (gameState) {
@@ -1032,10 +718,6 @@ const Sammy = () => {
           <Dead
             score={score.total}
             level={level}
-            onGoToIntro={() => {
-              updateGameState();
-              setGameState(GameState.PAUSED);
-            }}
             isWin={gameState === GameState.WON}
           />
         );
@@ -1092,15 +774,14 @@ const Sammy = () => {
           height={530}
           className="absolute top-0 left-0 z-1"
         />
-        <HighScoresProvider>{overlays}</HighScoresProvider>
+        {overlays}
       </div>
 
       <div className="flex mt-6">
         <div className="flex flex-1 justify-center">
           <DPad
             onDirectionChange={(direction: number) => {
-              setSammy((prev) => ({ ...prev, newDirection: direction }));
-              updateSequence(direction);
+              moveShip(ship.x + direction * SHIP_MOVE_SPEED);
             }}
           />
         </div>

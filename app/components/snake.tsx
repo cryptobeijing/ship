@@ -8,7 +8,8 @@ import React, {
   DependencyList,
   useCallback,
 } from "react";
-import { useOpenUrl } from "@coinbase/onchainkit/minikit";
+import { type Address as AddressType } from "viem";
+//import { useOpenUrl } from "@coinbase/onchainkit/minikit";
 import {
   ConnectWallet,
   ConnectWalletText,
@@ -24,10 +25,10 @@ import {
   Avatar,
 } from "@coinbase/onchainkit/identity";
 import { useAccount } from "wagmi";
-import ArrowSvg from "../svg/ArrowSvg";
+//import ArrowSvg from "../svg/ArrowSvg";
 import BaseLogoHorizontal from "../svg/BaseLogoHorizontal";
 
-const MAX_SCORES = 8;
+//const MAX_SCORES = 8;
 const FPS = 60;
 const MS_PER_FRAME = 1000 / FPS;
 const COLORS = {
@@ -76,15 +77,15 @@ export type Score = {
   score: number;
 };
 
-type Attestation = {
+/*type Attestation = {
   decodedDataJson: string;
   attester: string;
   time: string;
   id: string;
   txid: string;
-};
+};*/
 
-async function fetchLastAttestations() {
+/*async function fetchLastAttestations() {
   const query = `
     query GetAttestations {
       attestations(
@@ -126,7 +127,7 @@ async function fetchLastAttestations() {
       return null;
     })
     .sort((a: Score, b: Score) => b.score - a.score);
-}
+}*/
 
 const LevelMaps: {
   [key: number]: { x1: number; y1: number; width: number; height: number }[];
@@ -366,7 +367,7 @@ export function Dead({ score, level, isWin }: DeadProps) {
   );
 }
 
-function HighScores() {
+/*function HighScores() {
   const openUrl = useOpenUrl();
 
   const handleHighScoreClick = (score: Score) => {
@@ -402,17 +403,17 @@ function HighScores() {
           )))}
     </div>
   );
-}
+}*/
 
 type IntroProps = {
   konami: boolean;
 };
 
-function Intro({ konami }: IntroProps) {
+function Intro({  }: IntroProps) {
   return (
     <div className="absolute inset-0 flex flex-col items-center bg-white/70 z-20 m-[10px] mb-[30px] pb-6">
       <div className="absolute top-12">
-        <BaseLogoHorizontal className="w-[300px] h-[60px]" animate={konami} />
+        <BaseLogoHorizontal />
       </div>
       <div className="absolute bottom-4">Press play or space to start</div>
     </div>

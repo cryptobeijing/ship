@@ -11,6 +11,10 @@ export const viewport: Viewport = {
 
 export async function generateMetadata(): Promise<Metadata> {
   const URL = process.env.NEXT_PUBLIC_URL;
+  const imageUrl = process.env.NEXT_PUBLIC_IMAGE_URL || '/base-ship.jpg';
+  const splashImageUrl = process.env.NEXT_PUBLIC_SPLASH_IMAGE_URL || '/base-ship.jpg';
+  const iconUrl = process.env.NEXT_PUBLIC_ICON_URL || '/Base-Logo.png';
+
   return {
     title: process.env.NEXT_PUBLIC_ONCHAINKIT_PROJECT_NAME,
     description:
@@ -18,14 +22,14 @@ export async function generateMetadata(): Promise<Metadata> {
     other: {
       "fc:frame": JSON.stringify({
         version: process.env.NEXT_PUBLIC_VERSION,
-        imageUrl: process.env.NEXT_PUBLIC_IMAGE_URL,
+        imageUrl,
         button: {
           title: `Launch SBASE SHIP`,
           action: {
             type: "launch_frame",
             name: process.env.NEXT_PUBLIC_ONCHAINKIT_PROJECT_NAME,
             url: URL,
-            splashImageUrl: process.env.NEXT_PUBLIC_SPLASH_IMAGE_URL,
+            splashImageUrl,
             splashBackgroundColor: `#${process.env.NEXT_PUBLIC_SPLASH_BACKGROUND_COLOR}`,
           },
         },

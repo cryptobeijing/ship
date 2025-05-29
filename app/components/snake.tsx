@@ -580,20 +580,16 @@ const Sammy = () => {
 
   const updateGame = useCallback(() => {
     // Move bullets
-    setBullets(prev => 
-      prev.map(bullet => ({
-        ...bullet,
-        y: bullet.y - BULLET_SPEED
-      })).filter(bullet => bullet.y > 0)
-    );
+    setBullets(prev => prev.map(bullet => ({
+      ...bullet,
+      y: bullet.y - BULLET_SPEED
+    })).filter(bullet => bullet.y > 0));
 
     // Move enemies
-    setEnemies(prev =>
-      prev.map(enemy => ({
-        ...enemy,
-        y: enemy.y + ENEMY_SPEED
-      })).filter(enemy => enemy.y < 500)
-    );
+    setEnemies(prev => prev.map(enemy => ({
+      ...enemy,
+      y: enemy.y + ENEMY_SPEED
+    })).filter(enemy => enemy.y < 520));
 
     // Create new bullets
     if (Math.random() < 0.1) {
@@ -610,7 +606,7 @@ const Sammy = () => {
         y: -ENEMY_SIZE
       }]);
     }
-  }, [ship.x]);
+  }, [ship.x, ship.y]);
 
   const checkCollisions = useCallback(() => {
     // Check bullet-enemy collisions
@@ -727,7 +723,7 @@ const Sammy = () => {
       default:
         return null;
     }
-  }, [gameState, konami, level, score.total, setGameState, updateGameState]);
+  }, [gameState, konami, level, score.total]);
 
   if (!scale) {
     return (
